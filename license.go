@@ -144,20 +144,42 @@ func (l *License) Verify() ([]byte, error) {
 	return verifier.VerifyLicense(l)
 }
 
+type MachineOption func(*Machine)
+
+// WithComponents adds components to the machine configuration
+func WithComponents(components ...Component) MachineOption {
+	return func(m *Machine) {
+		m.components = components
+	}
+}
+
+// WithMetadata adds metadata to the machine configuration
+func WithMetadata(metadata map[string]interface{}) MachineOption {
+	return func(m *Machine) {
+		m.Metadata = metadata
+	}
+}
+
 // Activate performs a machine activation for the license, identified by the provided
 // fingerprint. If the activation is successful, the new machine will be returned. An
 // error will be returned if the activation fails, e.g. ErrMachineLimitExceeded
 // or ErrMachineAlreadyActivated.
-func (l *License) Activate(ctx context.Context, fingerprint string, components ...Component) (*Machine, error) {
+func (l *License) Activate(ctx context.Context, fingerprint string, opts ...MachineOption) (*Machine, error) {
 	client := NewClient()
 	hostname, _ := os.Hostname()
+
+	// Create base machine with required fields
 	params := &Machine{
 		Fingerprint: fingerprint,
 		Hostname:    hostname,
 		Platform:    runtime.GOOS + "/" + runtime.GOARCH,
 		Cores:       runtime.NumCPU(),
 		LicenseID:   l.ID,
-		components:  components,
+	}
+
+	// Apply all options
+	for _, opt := range opts {
+		opt(params)
 	}
 
 	machine := &Machine{}
